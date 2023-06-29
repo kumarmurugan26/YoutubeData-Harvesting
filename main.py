@@ -7,18 +7,18 @@ import psycopg2
 from datetime import datetime
 from googleapiclient.errors import HttpError
 
-# cnx = psycopg2.connect(host="localhost",
-#                        user="postgres",
-#                        password="9842",
-#                        port=5432,
-#                        database="postgres1")
-# cursor = cnx.cursor()
-#
-# conn = pymongo.MongoClient("mongodb://kumarmurugan9:kumarmurugan@ac-jkm7ml8-shard-00-00.vbzfdyw.mongodb.net:27017,ac-jkm7ml8-shard-00-01.vbzfdyw.mongodb.net:27017,ac-jkm7ml8-shard-00-02.vbzfdyw.mongodb.net:27017/?ssl=true&replicaSet=atlas-jfe7tk-shard-0&authSource=admin&retryWrites=true&w=majority")
-# db = conn['youtube_data']
-# collection = db['channels']
-# Api_key = 'AIzaSyBFUrKdvgeXRnXHHOZZDjnyNeM4XTcy_jo'
-# youtube_service = build("youtube", "v3", developerKey=api_key)
+cnx = psycopg2.connect(host="localhost",
+                       user="postgres",
+                       password="9842",
+                       port=5432,
+                       database="postgres1")
+cursor = cnx.cursor()
+
+conn = pymongo.MongoClient("mongodb://kumarmurugan9:kumarmurugan@ac-jkm7ml8-shard-00-00.vbzfdyw.mongodb.net:27017,ac-jkm7ml8-shard-00-01.vbzfdyw.mongodb.net:27017,ac-jkm7ml8-shard-00-02.vbzfdyw.mongodb.net:27017/?ssl=true&replicaSet=atlas-jfe7tk-shard-0&authSource=admin&retryWrites=true&w=majority")
+db = conn['youtube_data']
+collection = db['channels']
+api_key = 'AIzaSyAlf_EjyEDvMsm0s0JQGCVKODKSi9YNgiw'
+youtube = build("youtube", "v3", developerKey=api_key)
 def main():
     st.title("YouTube Data Harvesting")
     st.write("---")
@@ -35,7 +35,7 @@ def main():
 
 
 def get_channel_data(channel_id):
-    response = youtube_service.channels().list(
+    response = youtube.channels().list(
         part="snippet, statistics, contentDetails",
         id=channel_id
     ).execute()
@@ -43,7 +43,7 @@ def get_channel_data(channel_id):
     channel_data = {}
     if response.get("items"):
         channel = response["items"][0]
-        channel_data["_id"] = channel["snippet"]["title"]
+        channel_data["Channel id"] = channel_id
         channel_data["Channel Name"] = channel["snippet"]["title"]
         channel_data["Subscribers"] = channel["statistics"]["subscriberCount"]
         channel_data["Total Video Count"] = channel["statistics"]["videoCount"]
@@ -204,19 +204,16 @@ def store_data_in_mongodb():
 
     if st.button("Store Data"):
         channel_data = get_channel_data(channel_id)
-        if channels in db.list_collection_names():
-            collection.drop()
-
         # Insert channel data into the collection
-        collection.insert_many(channel_data)
+        collection.insert_one(channel_data)
         st.write("Channel Name :",channel_data["Channel Name"])
-        st.write("Subscribers :",channel_data["Subscription_Count"])
-        st.write("Total Video Count :", channel_data["Total_video_count"])
+        st.write("Subscribers :",channel_data["Subscribers"])
+        st.write("Total Video Count :", channel_data["Total Video Count"])
 
 def migrate_data_to_sql():
 
     st.header("Migrate Data to SQL")
-    channel_names = [channel["Channel_Name"] for channel in coll.find({}, {"Channel_Name": 1})]
+    channel_names = [channel["Channel Name"] for channel in collection.find({}, {"Channel Name": 1})]
 
 
     # Create a dropdown to select a channel
@@ -224,7 +221,7 @@ def migrate_data_to_sql():
 
     if st.button("Migrate Data"):
 
-        channel_data = coll.find_one({"Channel_Name": selected_channel})
+        channel_data = collection.find_one({"Channel Name": selected_channel})
         if channel_data:
             create_sql_tables()
             insert_data_to_sql(channel_data)
@@ -236,7 +233,7 @@ def create_sql_tables():
     # Create channel table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS channel (
-            id SERIAL PRIMARY KEY,
+            channel_id VARCHAR(255) PRIMARY KEY,
             name VARCHAR(255),
             subscribers INT,
             video_count INT
@@ -246,11 +243,10 @@ def create_sql_tables():
     # Create playlist table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS playlist (
-            id SERIAL PRIMARY KEY,
-            channel_id INT,
-            playlist_id VARCHAR(255),
+            channel_id VARCHAR(255),
+            playlist_id VARCHAR(255) PRIMARY KEY,
             playlist_name VARCHAR(255),
-            FOREIGN KEY (channel_id) REFERENCES channel(id)
+            FOREIGN KEY (channel_id) REFERENCES channel(channel_id)
         )
     """)
 
@@ -258,18 +254,18 @@ def create_sql_tables():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS video (
             id SERIAL PRIMARY KEY,
-            playlist_id INT,
+            playlist_id VARCHAR(255),
             video_id VARCHAR(255),
             title VARCHAR(255),
             description TEXT,
-            published_date DATETIME,
+            published_date VARCHAR(255),
             views INT,
             likes INT,
             comment_count INT,
             duration INT,
             thumbnail VARCHAR(255),
             caption_status VARCHAR(255),
-            FOREIGN KEY (playlist_id) REFERENCES playlist(id)
+            FOREIGN KEY (playlist_id) REFERENCES playlist(playlist_id)
         )
     """)
 
@@ -280,7 +276,7 @@ def create_sql_tables():
             video_id INT,
             comment_text TEXT,
             comment_author VARCHAR(255),
-            comment_published_date DATETIME,
+            comment_published_date VARCHAR(255),
             FOREIGN KEY (video_id) REFERENCES video(id)
         )
     """)
@@ -288,68 +284,69 @@ def create_sql_tables():
     cnx.commit()
 
 def insert_data_to_sql(channel_data):
-    channel_values = (channel_data["Channel Name"], channel_data["Subscribers"], channel_data["Total Video Count"])
+    channel_values = (channel_data["Channel id"],channel_data["Channel Name"], channel_data["Subscribers"], channel_data["Total Video Count"])
     cursor.execute("""
-        INSERT INTO channel (name, subscribers, video_count)
-        VALUES (%s, %s, %s)
-        RETURNING id
-    """, channel_values)
-    channel_id = cursor.fetchone()[0]
+        INSERT INTO channel (channel_id, name, subscribers, video_count)
+        VALUES (%s,%s, %s, %s)
+         """, channel_values)
+    # channel_id = cursor.fetchone()[0]
+    playlist = get_playlist_data(channel_id)
 
-    for playlist_details in channel_data["Playlists"]:
-        playlist_values = (channel_id, playlist_details["Playlist ID"], playlist_details["Playlist Title"])
-        cursor.execute("""
-            INSERT INTO playlist (channel_id, playlist_id, playlist_name)
-            VALUES (%s, %s, %s)
-            RETURNING id
-        """, playlist_values)
-        playlist_id = cursor.fetchone()[0]
-        for video_data in playlist_data["Videos"]:
-            video_values = (
-                playlist_id,
-                video_data["video id"],
-                video_data["title"],
-                video_data["description"],
-                video_data["publishedAt"],
-                video_data["viewCount"],
-                video_data["likeCount"],
-                video_data["commentCount"],
-                video_data["duration"]
-                video_data["thumbnail_url"],
-                video_data["caption"])
-
+    for playlist_details in playlist:
+            playlist_values = (playlist_details['channel_id'], playlist_details['Playlist ID'], playlist_details['Playlist Title'])
             cursor.execute("""
-                INSERT INTO video (
-                    playlist_id,
-                    video_id,
-                    title,
-                    description,
-                    published_date,
-                    views,
-                    likes,
-                    comment_count,
-                    duration,
-                    thumbnail,
-                    caption_status
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO playlist (channel_id, playlist_id, playlist_name)
+                VALUES (%s, %s, %s)
                 RETURNING id
-                 """, video_values)
+            """, playlist_values)
+            playlist_id = cursor.fetchone()[0]
 
-            video_id = cursor.fetchone()[0]
-            for comment in comments:
-                comment_values = (
-                    video_id,
-                    comment["comment_text"],
-                    comment["comment_author"],
-                    comment["comment_published_date"]
-                )
-                cursor.execute("""
-                           INSERT INTO comment (video_id, comment_text, comment_author, comment_published_date)
-                           VALUES (%s, %s, %s, %s)
-                       """, comment_values)
+    for video_data in playlist_data["Videos"]:
+        video_values = (
+            playlist_id,
+            video_data["video id"],
+            video_data["title"],
+            video_data["description"],
+            video_data["publishedAt"],
+            video_data["viewCount"],
+            video_data["likeCount"],
+            video_data["commentCount"],
+            video_data["duration"],
+            video_data["thumbnail_url"],
+            video_data["caption"])
 
-            cnx.commit()
+        cursor.execute("""
+            INSERT INTO video (
+                playlist_id,
+                video_id,
+                title,
+                description,
+                published_date,
+                views,
+                likes,
+                comment_count,
+                duration,
+                thumbnail,
+                caption_status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+            RETURNING id
+             """, video_values)
+
+        video_id = cursor.fetchone()[0]
+        for comment in comments:
+            comment_values = (
+                video_id,
+                comment["comment_text"],
+                comment["comment_author"],
+                comment["comment_published_date"]
+            )
+            cursor.execute("""
+                       INSERT INTO comment (video_id, comment_text, comment_author, comment_published_date)
+                       VALUES (%s, %s, %s, %s)
+                   """, comment_values)
+
+        cnx.commit()
 
 def search_sql_database():
     st.header("Search in SQL Database")
@@ -518,6 +515,13 @@ def search_sql_database():
                 execute_function(selected_option)
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
 
 
 
