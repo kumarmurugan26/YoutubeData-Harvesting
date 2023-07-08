@@ -282,7 +282,7 @@ if selected == "Migrate":
         pg_connection.commit()
     def migrate_data():
 
-        channel_details = collection1.find({"Channel_Name": "The Dev World - by Sergio Lema"}, {'_id': 0})
+        channel_details = collection1.find({"Channel_Name": "user_inp"}, {'_id': 0})
         for item in channel_details:
             values = (
                 item['Channel_Name'],
@@ -296,7 +296,7 @@ if selected == "Migrate":
             pg_cursor.execute("INSERT INTO channels VALUES (%s, %s, %s, %s, %s, %s, %s)", values)
         pg_connection.commit()
 
-        for video_item in collection2.find({"Channel_name": "The Dev World - by Sergio Lema"}, {'_id': 0}):
+        for video_item in collection2.find({"Channel_name": "user_inp"}, {'_id': 0}):
             values = (
                 video_item['Channel_name'],
                 video_item['Channel_id'],
@@ -319,7 +319,7 @@ if selected == "Migrate":
 
         pg_connection.commit()
 
-        for video_item in collection2.find({"Channel_name": "The Dev World - by Sergio Lema"}, {'_id': 0}):
+        for video_item in collection2.find({"Channel_name": "user_inp"}, {'_id': 0}):
             video_id = video_item['Video_id']
             for comment_item in collection3.find({"Video_id": video_id}, {'_id': 0}):
                 comment_values = (
