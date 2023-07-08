@@ -30,11 +30,8 @@ PyMongo: A Python library that enables interaction with MongoDB, a NoSQL databas
 
 Psycopg2: A PostgreSQL adapter for Python that allows seamless integration between Python and PostgreSQL. It enables the YouTube Data Scraper to connect to and interact with the PostgreSQL database.
 
-Matplotlib: A popular data visualization library in Python used for creating charts, graphs, and visual representations of the data retrieved from YouTube. Matplotlib helps in analyzing and presenting the data in a meaningful way.
-
 Pandas: A powerful data manipulation and analysis library in Python. Pandas is used in the YouTube Data Scraper to handle and process data obtained from YouTube, providing functionalities such as data filtering, transformation, and aggregation.
 
-pip install -r requirements.txt: To install the rquired dependencies.
 
 # Process Flow
 Obtain YouTube API credentials:
@@ -62,3 +59,7 @@ Next click on Push to MongoDB to store data in MongoDB Lake.
 Select a channel name from the dropdown Channel Details and click on Push to SQL to import data into PostgreSQL.
 
 Once imported, you can select the Analysis and Reports Page from the drop down to get a detailed analysis of the collected data.
+
+
+
+
